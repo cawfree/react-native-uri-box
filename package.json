@@ -1,0 +1,25 @@
+{
+  "name": "react-native-uri-box",
+  "version": "0.0.1",
+  "description": "An extendible React <Component/> which will attempt to render source content consistently, based on the MIME type.",
+  "keywords": [
+    "react",
+    "react-native",
+    "uri",
+    "arbitrary",
+    "generic",
+    "content"
+  ],
+  "main": "index.js",
+  "repository": "https://github.com/cawfree/react-native-uri-box",
+  "author": "Alex Thomas (@cawfree) <hello@cawfree.com>",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "axios": "^0.19.0",
+    "react-native-mime-types": "^2.2.1"
+  },
+  "devDependencies": {
+    "react-doc-generator": "^1.2.5"
+  }
+}
