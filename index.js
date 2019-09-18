@@ -6,7 +6,6 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import axios from 'axios';
 import { lookup } from 'react-native-mime-types';
 
 const styles = StyleSheet
@@ -55,15 +54,17 @@ class UriBox extends React.Component {
     return Promise
       .resolve();
   }
-  async componentWillUpdate(nextProps, nextState) {
-    const { source } = nextProps;
-    if (!!source && (source !== this.props.source)) {
+  getSnapshotBeforeUpdate(prevProps, prevState) {
+    const { source: prevSource } = prevProps;
+    const { source } = this.props;
+    if (!!source && (source !== prevSource)) {
       return this.__shouldUpdateSource(source)
         .catch(console.warn);
     }
     return Promise
       .resolve();
   }
+  componentDidUpdate() { /* unused */ }
   __shouldUpdateSource(source) {
     return new Promise(
       resolve => this.setState(
@@ -84,16 +85,31 @@ class UriBox extends React.Component {
     if (typeof source === 'object') {
       const { uri } = source;
       if (typeof uri === 'string') {
-        return axios(
-          {
-            method: 'get',
-            url: uri,
+        return new Promise(
+          (resolve, error) => {
+            const xhttp = new XMLHttpRequest();
+            xhttp.open(
+              'HEAD',
+              uri,
+            );
+            Object.assign(
+              xhttp,
+              {
+                onreadystatechange: function () {
+                  if (this.readyState == this.DONE) {
+                    return resolve(
+                      this.getResponseHeader(
+                        'Content-Type',
+                      ),
+                    );
+                  }
+                },
+                error,
+              },
+            );
+            xhttp.send();
           },
-        )
-          .then(({ headers }) => {
-            const { 'content-type': contentType } = headers;
-            return contentType;
-          });
+        );
       }
     }
     return Promise
