@@ -19,8 +19,8 @@ const styles = StyleSheet
 
 const ImageComponent = ({ ...extraProps }) => (
   <Image
-    {...extraProps}
     resizeMode="cover"
+    {...extraProps}
   />
 );
 
