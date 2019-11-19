@@ -58,6 +58,11 @@ class UriBox extends React.Component {
     const { source: prevSource } = prevProps;
     const { source } = this.props;
     if (!!source && (source !== prevSource)) {
+      const uriDidNotChange = ((typeof source === 'object' && typeof prevSource ==='object') && (source.uri === prevSource.uri));
+      if (uriDidNotChange) {
+        return Promise
+          .resolve();
+      }
       return this.__shouldUpdateSource(source)
         .catch(console.warn);
     }
