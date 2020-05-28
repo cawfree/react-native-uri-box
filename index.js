@@ -175,6 +175,7 @@ class UriBox extends React.Component {
         )}
         {(!sourceIsKnown && mime) && (
           <UnsupportedComponent
+            source={source}
           />
         )}
         {(!sourceIsKnown && (!!source)) && (
