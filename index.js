@@ -1,21 +1,28 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import {
-  View,
-  StyleSheet,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
-import { lookup } from 'react-native-mime-types';
+import React, {useState, useEffect, useCallback} from "react";
+import PropTypes from "prop-types";
+import {ActivityIndicator, View, Image, StyleSheet} from "react-native";
+import {typeCheck} from "type-check";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
-const styles = StyleSheet
-  .create(
-    {
-      container: {
-        flex: 1,
+const getMimeType = (uri, method) => new Promise(
+  (resolve, error) => {
+    const xhttp = new XMLHttpRequest();
+    xhttp.open(method, uri);
+    Object.assign(
+      xhttp,
+      {
+        onreadystatechange: function () {
+          if (this.readyState == this.DONE) {
+            return resolve(this.getResponseHeader('Content-Type'));
+          }
+        },
+        error,
       },
-    },
-  );
+    );
+    xhttp.send();
+  },
+);
+
 
 const ImageComponent = ({ ...extraProps }) => (
   <Image
@@ -32,177 +39,69 @@ export const LookUpTable = {
   ['image/webp']: ImageComponent,
 };
 
-class UriBox extends React.Component {
-  static isSourceKnown = (lookUpTable, mime) => (
-    typeof lookUpTable === 'object' && typeof mime === 'string' && typeof lookUpTable[mime] === 'function'
+const styles = StyleSheet.create({container: {flex: 1}});
+
+const UriBox = ({ Component, style, LoadingComponent, UnsupportedComponent, source, lookUpTable, optimized, inefficient, ...extraProps }) => {
+  const [mimeType, setMimeType] = useState(null);
+  const [{width, height}, setLayout] = useState({width: 0, height: 0});
+  const onLayout = useCallback(
+    ({nativeEvent: {layout}}) => setLayout(layout),
   );
-  constructor(props) {
-    super(props);
-    this.__onLayout = this.__onLayout.bind(this);
-    this.state = {
-      width: undefined,
-      height: undefined,
-      mime: undefined,
-    };
-  }
-  async componentDidMount() {
-    const { source } = this.props;
-    if (!!source) {
-      return this.__shouldUpdateSource(source)
-        .catch(console.warn);
-    }
-    return Promise
-      .resolve();
-  }
-  getSnapshotBeforeUpdate(prevProps, prevState) {
-    const { source: prevSource } = prevProps;
-    const { source } = this.props;
-    if (!!source && (source !== prevSource)) {
-      const uriDidNotChange = ((source && typeof source === 'object' && prevSource && typeof prevSource ==='object') && (source.uri === prevSource.uri));
-      if (uriDidNotChange) {
-        return Promise
-          .resolve();
+  useDeepCompareEffect(
+    () => {
+      if (typeCheck("{uri:String,...}", source)) {
+        const {uri} = source;
+        return getMimeType(uri, inefficient ? "GET" : "HEAD")
+          .then((mimeType) => {
+            if (typeCheck("String", mimeType)) {
+              return setMimeType(mimeType);
+            }
+            return Promise.reject(new Error(`${uri} does not support the HEAD request.`));
+          })
+          && undefined;
       }
-      return this.__shouldUpdateSource(source)
-        .catch(console.warn);
-    }
-    return Promise
-      .resolve();
-  }
-  componentDidUpdate() { /* unused */ }
-  __shouldUpdateSource(source) {
-    return new Promise(
-      resolve => this.setState(
-        {
-          mime: null,
-        },
-        resolve,
-      ),
-    )
-      .then(() => this.__getMimeType(
-        source,
-      ))
-      .then(mime => this.setState({
-        mime,
-      }));
-  }
-  __getMimeType(source) {
-    if (typeof source === 'object') {
-      const { uri } = source;
-      if (typeof uri === 'string') {
-        return new Promise(
-          (resolve, error) => {
-            const xhttp = new XMLHttpRequest();
-            xhttp.open(
-              'HEAD',
-              uri,
-            );
-            Object.assign(
-              xhttp,
-              {
-                onreadystatechange: function () {
-                  if (this.readyState == this.DONE) {
-                    return resolve(
-                      this.getResponseHeader(
-                        'Content-Type',
-                      ),
-                    );
-                  }
-                },
-                error,
-              },
-            );
-            xhttp.send();
-          },
-        );
-      }
-    }
-    return Promise
-      .reject(
-        new Error(
-          `Unable to evaluate source! (${JSON.stringify(
-            source,
-          )})`,
-        ),
-      );
-  }
-  __onLayout(e) {
-    const {
-      width,
-      height,
-    } = e.nativeEvent.layout;
-    return this.setState(
-      {
-        width,
-        height,
-      },
-    );
-  }
-  render() {
-    const {
-      Component,
-      LoadingComponent,
-      UnsupportedComponent,
-      lookUpTable,
-      style,
-      ...extraProps
-    } = this.props;
-    const { source } = extraProps;
-    const {
-      width,
-      height,
-      mime,
-    } = this.state;
-    const sourceIsKnown = UriBox
-      .isSourceKnown(
-        lookUpTable,
-        mime,
-      );
-    const Implementation = lookUpTable[mime];
-    return (
-      <Component
-        style={style}
-        onLayout={this.__onLayout}
-      >
-        {(!!sourceIsKnown) && (
-          <Implementation
-            style={{
-              width,
-              height,
-            }}
-            {...extraProps}
-          />
-        )}
-        {(!sourceIsKnown && mime) && (
-          <UnsupportedComponent
-            source={source}
-          />
-        )}
-        {(!sourceIsKnown && (!!source)) && (
-          <LoadingComponent
-          />
-        )}
-      </Component>
-    );
-  }
-}
+      return undefined;
+    },
+    [source, setMimeType, inefficient],
+  );
+  const Implementation = lookUpTable[mimeType];
+  const sourceIsKnown = typeCheck("String", mimeType) && typeCheck("Function", Implementation);
+  return (
+    <Component
+      style={style}
+      onLayout={onLayout}
+    >
+      {(!!sourceIsKnown) && (
+        <Implementation
+          style={{
+            width,
+            height,
+          }}
+          {...extraProps}
+          source={source}
+        />
+      )}
+      {(!sourceIsKnown && mimeType) && (
+        <UnsupportedComponent
+          source={source}
+        />
+      )}
+      {(!sourceIsKnown && (!!source)) && (
+        <LoadingComponent
+        />
+      )}
+    </Component>
+  );
+};
 
 UriBox.propTypes = {
   Component: PropTypes.elementType,
   LoadingComponent: PropTypes.elementType,
   UnsupportedComponent: PropTypes.elementType,
   style: PropTypes.shape({}),
-  source: PropTypes.oneOfType(
-    [
-      // TODO: Support requires, too.
-      PropTypes.shape(
-        {
-          uri: PropTypes.string.isRequired,
-        },
-      ),
-    ],
-  ),
+  source: PropTypes.oneOfType([PropTypes.shape({uri: PropTypes.string.isRequired})]),
   lookUpTable: PropTypes.shape({}),
+  inefficient: PropTypes.bool,
 };
 
 UriBox.defaultProps = {
@@ -220,6 +119,7 @@ UriBox.defaultProps = {
   style: styles.container,
   source: null,
   lookUpTable: LookUpTable,
+  inefficient: false,
 };
 
 export default UriBox;
