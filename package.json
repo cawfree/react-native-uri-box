@@ -1,6 +1,6 @@
 {
   "name": "react-native-uri-box",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "An extendible React <Component/> which will attempt to render source content consistently, based on the MIME type.",
   "keywords": [
     "react",
